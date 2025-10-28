@@ -25,6 +25,9 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/meals', require('./routes/meals'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/community', require('./routes/community'));
+app.use('/api/expenses', require('./routes/expenses'));
+app.use('/api/notifications', require('./routes/notifications'));
 
 app.use(require('./middleware/error'));
 
