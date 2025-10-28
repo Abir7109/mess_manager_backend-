@@ -130,6 +130,18 @@ router.get('/overview', requireAuth, requireAdmin, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// Admin: list meal logs for a user and month
+router.get('/meals', requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const { userId, month } = req.query;
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    const m = month || dayjs().format('YYYY-MM');
+    const dates = getMonthDates(m);
+    const logs = await MealLog.find({ user: userId, date: { $in: dates } });
+    res.json({ month: m, logs });
+  } catch (e) { next(e); }
+});
+
 // Admin: PDF download
 router.get('/pdf', requireAuth, requireAdmin, async (req, res, next) => {
   try {

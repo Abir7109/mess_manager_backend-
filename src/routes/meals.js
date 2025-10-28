@@ -21,14 +21,7 @@ router.get('/mine', requireAuth, async (req, res, next) => {
 
 router.post('/mine', requireAuth, async (req, res, next) => {
   try {
-    const { date, breakfast, dinner, note } = req.body;
-    if (!date) return res.status(400).json({ error: 'date required (YYYY-MM-DD)' });
-    const updated = await MealLog.findOneAndUpdate(
-      { user: req.user.sub, date },
-      { $set: { breakfast: !!breakfast, dinner: !!dinner, note } },
-      { upsert: true, new: true }
-    );
-    res.json(updated);
+    return res.status(403).json({ error: 'Users cannot modify meals. Please contact an admin.' });
   } catch (e) { next(e); }
 });
 
