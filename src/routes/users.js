@@ -33,9 +33,10 @@ router.post('/me/photo', requireAuth, upload.single('photo'), async (req, res, n
     const uploadStream = bucket.openUploadStream(`avatar_${req.user.sub}_${Date.now()}`, { contentType: req.file.mimetype });
     uploadStream.end(req.file.buffer);
     uploadStream.on('error', err => next(err));
-    uploadStream.on('finish', async (file) => {
-      const photoUrl = `/api/files/${file._id.toString()}`;
-      await User.findByIdAndUpdate(req.user.sub, { photoUrl, photoFileId: file._id });
+    uploadStream.on('finish', async () => {
+      const id = uploadStream.id;
+      const photoUrl = `/api/files/${id.toString()}`;
+      await User.findByIdAndUpdate(req.user.sub, { photoUrl, photoFileId: id });
       res.json({ photoUrl });
     });
   } catch (e) { next(e); }

@@ -106,7 +106,7 @@ router.get('/overview', requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const month = req.query.month || dayjs().format('YYYY-MM');
     const dates = getMonthDates(month);
-    const settings = await getSettings();
+const settings = await getSettings();
     const users = await User.find();
     const logs = await MealLog.find({ date: { $in: dates } });
 
@@ -117,7 +117,7 @@ router.get('/overview', requireAuth, requireAdmin, async (req, res, next) => {
       const key = log.user.toString();
       const item = byUser.get(key);
       if (!item) continue;
-      item.totalMeals += computeDailyCount(log, settings.countingRule);
+item.totalMeals += computeDailyCount(log, settings.countingRule || 'perMealHalf');
     }
 
     const result = Array.from(byUser.values()).map(u => ({
@@ -166,6 +166,30 @@ router.get('/pdf', requireAuth, requireAdmin, async (req, res, next) => {
     }));
 
     generateOverviewPDF({ month, users: payload, settings }, res);
+  } catch (e) { next(e); }
+});
+
+const multer = require('multer');
+const { GridFSBucket, ObjectId } = require('mongodb');
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } });
+
+// Admin upload user photo
+router.post('/users/:id/photo', requireAuth, requireAdmin, upload.single('photo'), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'photo file required' });
+    const bucket = new GridFSBucket(req.app.locals.db);
+    const u = await User.findById(req.params.id);
+    if (!u) return res.status(404).json({ error: 'user not found' });
+    if (u.photoFileId) { try { await bucket.delete(new ObjectId(u.photoFileId)); } catch {} }
+    const uploadStream = bucket.openUploadStream(`avatar_${u._id}_${Date.now()}`, { contentType: req.file.mimetype });
+    uploadStream.end(req.file.buffer);
+    uploadStream.on('error', err => next(err));
+    uploadStream.on('finish', async () => {
+      const id = uploadStream.id;
+      const photoUrl = `/api/files/${id.toString()}`;
+      await User.findByIdAndUpdate(u._id, { photoUrl, photoFileId: id });
+      res.json({ photoUrl });
+    });
   } catch (e) { next(e); }
 });
 
