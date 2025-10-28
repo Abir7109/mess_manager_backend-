@@ -12,11 +12,26 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
+// Build allowed origins list (GH Pages uses domain without path)
+const allowedOrigins = Array.from(new Set([
+  FRONTEND_URL,
+  process.env.FRONTEND_ORIGIN,
+  'http://localhost:5173',
+  'https://abir7109.github.io',
+].filter(Boolean).map(v => { try { return new URL(v).origin; } catch { return v; } })));
+
 app.use(helmet());
 app.use(morgan('dev'));
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
-app.use(cors({ origin: FRONTEND_URL, credentials: true }));
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); // allow curl/postman
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('CORS not allowed: ' + origin), false);
+  },
+  credentials: true,
+}));
 
 connectDB().then(() => ensureInitialAdmin()).catch(() => {});
 
