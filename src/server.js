@@ -20,6 +20,7 @@ app.use(cors({ origin: FRONTEND_URL, credentials: true }));
 
 connectDB().then(() => ensureInitialAdmin()).catch(() => {});
 
+app.get('/', (req, res) => res.json({ name: 'Mess Manager API', ok: true, health: '/api/health' }));
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
