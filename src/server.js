@@ -19,6 +19,7 @@ const allowedOrigins = Array.from(new Set([
   'http://localhost:5173',
   'https://abir7109.github.io',
 ].filter(Boolean).map(v => { try { return new URL(v).origin; } catch { return v; } })));
+console.log('CORS allowed origins:', allowedOrigins);
 
 app.use(helmet());
 app.use(morgan('dev'));
@@ -27,7 +28,7 @@ app.use(cookieParser());
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true); // allow curl/postman
-    if (allowedOrigins.includes(origin)) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, origin);
     return callback(new Error('CORS not allowed: ' + origin), false);
   },
   credentials: true,
