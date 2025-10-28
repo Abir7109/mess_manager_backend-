@@ -36,6 +36,12 @@ app.use(cors({
 
 connectDB().then(() => ensureInitialAdmin()).catch(() => {});
 
+// expose db for GridFS
+const mongoose = require('mongoose');
+mongoose.connection.on('connected', () => {
+  app.locals.db = mongoose.connection.db;
+});
+
 app.get('/', (req, res) => res.json({ name: 'Mess Manager API', ok: true, health: '/api/health' }));
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.use('/api/auth', require('./routes/auth'));
@@ -45,6 +51,8 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/community', require('./routes/community'));
 app.use('/api/expenses', require('./routes/expenses'));
 app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/public', require('./routes/public'));
+app.use('/api/files', require('./routes/files'));
 
 app.use(require('./middleware/error'));
 
