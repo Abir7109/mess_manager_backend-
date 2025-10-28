@@ -54,22 +54,27 @@ router.post('/login', async (req, res, next) => {
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
 
-    // Create DB session
+    // Create DB session (optional cookie-based auth)
     const sid = crypto.randomBytes(24).toString('hex');
     await Session.create({ sid, user: user._id, userAgent: req.headers['user-agent'] || '', ip: req.ip });
     setSessionCookie(res, sid);
 
-    // Also provide accessToken for API calls that prefer headers (optional; frontend may ignore)
+    // Header token auth
     const payload = { sub: user._id.toString(), role: user.role, name: user.name };
     const accessToken = signAccessToken(payload);
+    const refreshToken = signRefreshToken(payload);
 
-    res.json({ accessToken, user: { id: user._id, name: user.name, email: user.email, role: user.role, balance: user.balance, photoUrl: user.photoUrl, phone: user.phone } });
+    res.json({ accessToken, refreshToken, user: { id: user._id, name: user.name, email: user.email, role: user.role, balance: user.balance, photoUrl: user.photoUrl, phone: user.phone } });
   } catch (e) { next(e); }
 });
 
 router.post('/refresh', async (req, res, next) => {
   try {
-    const token = req.cookies.refresh_token;
+    let token = null;
+    const auth = req.headers.authorization || '';
+    if (auth.startsWith('Bearer ')) token = auth.slice(7);
+    if (!token) token = req.body?.refreshToken;
+    if (!token) token = req.cookies?.refresh_token;
     if (!token) return res.status(401).json({ error: 'No refresh token' });
     const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
     const payload = { sub: decoded.sub, role: decoded.role, name: decoded.name };
