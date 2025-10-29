@@ -1,7 +1,9 @@
 const router = require('express').Router();
 const dayjs = require('dayjs');
+const mongoose = require('mongoose');
 const MealLog = require('../models/MealLog');
 const Setting = require('../models/Setting');
+const Expense = require('../models/Expense');
 const { requireAuth } = require('../middleware/auth');
 const { computeDailyCount } = require('../utils/mealCount');
 
@@ -50,14 +52,26 @@ router.get('/summary/mine', requireAuth, async (req, res, next) => {
     for (let d = start; d.isBefore(end) || d.isSame(end, 'day'); d = d.add(1, 'day')) {
       dates.push(d.format('YYYY-MM-DD'));
     }
-const [settings] = await Setting.find().limit(1);
+    const [settings] = await Setting.find().limit(1);
     const countingRule = settings?.countingRule || 'perMealHalf';
     const mealCost = settings?.mealCost || 0;
 
     const logs = await MealLog.find({ user: req.user.sub, date: { $in: dates } });
     const totalMeals = logs.reduce((sum, l) => sum + computeDailyCount(l, countingRule), 0);
-    const totalCost = totalMeals * mealCost;
-    res.json({ month, totalMeals, mealCost, totalCost });
+    const mealsCost = totalMeals * mealCost;
+
+    // shared expenses share this month
+    const expStart = start.toDate();
+    const expEnd = end.toDate();
+    const shared = await Expense.find({
+      shared: true,
+      date: { $gte: expStart, $lte: expEnd },
+      participants: new mongoose.Types.ObjectId(req.user.sub)
+    });
+    const sharedShare = shared.reduce((s, e) => s + (e.amount / Math.max(1, (e.participants?.length || 1))), 0);
+
+    const totalCost = mealsCost + sharedShare;
+    res.json({ month, totalMeals, mealCost, mealsCost, sharedShare, totalCost });
   } catch (e) { next(e); }
 });
 
