@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const dayjs = require('dayjs');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireAdmin } = require('../middleware/auth');
 const Expense = require('../models/Expense');
 const User = require('../models/User');
 
@@ -48,6 +48,14 @@ router.get('/shared', requireAuth, async (req, res, next) => {
       }
     }
     res.json({ shared, owed: Object.fromEntries(owed) });
+  } catch (e) { next(e); }
+});
+
+// Delete expense (admin only)
+router.delete('/:id', requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    await Expense.findByIdAndDelete(req.params.id);
+    res.json({ ok: true });
   } catch (e) { next(e); }
 });
 

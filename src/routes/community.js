@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const dayjs = require('dayjs');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireAdmin } = require('../middleware/auth');
 const Suggestion = require('../models/Suggestion');
 
 // List suggestions with vote counts and whether current user voted
@@ -41,6 +41,14 @@ router.post('/suggestions/:id/vote', requireAuth, async (req, res, next) => {
     if (idx >= 0) s.votes.splice(idx, 1); else s.votes.push(me);
     await s.save();
     res.json({ id: s._id, votes: s.votes.length, voted: s.votes.some(v => v.toString() === me) });
+  } catch (e) { next(e); }
+});
+
+// Delete suggestion (admin only)
+router.delete('/suggestions/:id', requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    await Suggestion.findByIdAndDelete(req.params.id);
+    res.json({ ok: true });
   } catch (e) { next(e); }
 });
 
