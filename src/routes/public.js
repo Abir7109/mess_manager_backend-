@@ -65,7 +65,7 @@ router.get('/meal-price-history', async (req, res, next) => {
     const current = Number(settings?.mealCost || 0);
 
     const before = await PriceChange.findOne({ effectiveFrom: { $lt: startDate } }).sort({ effectiveFrom: -1 });
-    const changes = await PriceChange.find({ effectiveFrom: { $lte: endDate } }).sort({ effectiveFrom: 1 });
+    const changes = await PriceChange.find({ effectiveFrom: { $gte: startDate, $lte: endDate } }).sort({ effectiveFrom: 1 });
 
     // build per-day values
     const labels = [];
