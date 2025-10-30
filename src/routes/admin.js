@@ -117,9 +117,10 @@ router.post('/price-change', requireAuth, requireAdmin, async (req, res, next) =
     const { value, date } = req.body;
     if (value === undefined) return res.status(400).json({ error: 'value required' });
     const PriceChange = require('../models/PriceChange');
-    const dt = date ? dayjs(date, ['YYYY-MM-DD', dayjs.ISO_8601], true) : dayjs();
+    const dt = date ? dayjs(date) : dayjs();
+    const at = dt.startOf('day');
     if (!dt.isValid()) return res.status(400).json({ error: 'invalid date' });
-    const pc = await PriceChange.create({ value: Number(value) || 0, effectiveFrom: dt.toDate(), createdBy: req.user.sub });
+    const pc = await PriceChange.create({ value: Number(value) || 0, effectiveFrom: at.toDate(), createdBy: req.user.sub });
     res.status(201).json({ id: pc._id });
   } catch (e) { next(e); }
 });
