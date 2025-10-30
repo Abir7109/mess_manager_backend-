@@ -34,15 +34,56 @@ function setSessionCookie(res, sid) {
   res.cookie('sid', sid, options);
 }
 
+function normalizeAnswer(type, answer) {
+  if (!answer) return '';
+  if (type === 'phone') return String(answer).replace(/\D+/g, '');
+  if (type === 'color') return String(answer).trim().toLowerCase();
+  return String(answer).trim();
+}
+
 router.post('/register', async (req, res, next) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, recoveryType, recoveryAnswer } = req.body;
     if (!name || !email || !password) return res.status(400).json({ error: 'Missing fields' });
+    if (recoveryType && !['phone', 'color'].includes(recoveryType)) return res.status(400).json({ error: 'Invalid recoveryType' });
     const exists = await User.findOne({ email });
     if (exists) return res.status(400).json({ error: 'Email already in use' });
     const passwordHash = await bcrypt.hash(password, 10);
-    const user = await User.create({ name, email, passwordHash });
+    let recoveryAnswerHash = undefined;
+    if (recoveryType && recoveryAnswer) {
+      const norm = normalizeAnswer(recoveryType, recoveryAnswer);
+      recoveryAnswerHash = await bcrypt.hash(norm, 10);
+    }
+    const user = await User.create({ name, email, passwordHash, recoveryType: recoveryType || undefined, recoveryAnswerHash });
     res.status(201).json({ id: user._id, name: user.name, email: user.email });
+  } catch (e) { next(e); }
+});
+
+// Get recovery question type for an email (no leakage beyond type)
+router.post('/recovery-question', async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'email required' });
+    const user = await User.findOne({ email });
+    if (!user || !user.recoveryType) return res.status(404).json({ error: 'not found' });
+    const map = { phone: 'What is your personal number?', color: 'What is your favourite color?' }
+    res.json({ type: user.recoveryType, prompt: map[user.recoveryType] });
+  } catch (e) { next(e); }
+});
+
+// Reset password using recovery answer (no email OTP)
+router.post('/reset-password', async (req, res, next) => {
+  try {
+    const { email, answer, newPassword } = req.body;
+    if (!email || !answer || !newPassword) return res.status(400).json({ error: 'email, answer, newPassword required' });
+    const user = await User.findOne({ email });
+    if (!user || !user.recoveryType || !user.recoveryAnswerHash) return res.status(400).json({ error: 'Recovery not set for this account' });
+    const norm = normalizeAnswer(user.recoveryType, answer);
+    const ok = await bcrypt.compare(norm, user.recoveryAnswerHash);
+    if (!ok) return res.status(403).json({ error: 'Verification failed' });
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    await user.save();
+    res.json({ ok: true });
   } catch (e) { next(e); }
 });
 

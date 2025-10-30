@@ -9,6 +9,8 @@ const userSchema = new mongoose.Schema({
   photoFileId: { type: mongoose.Schema.Types.ObjectId },
   phone: { type: String },
   balance: { type: Number, default: 0 },
+  recoveryType: { type: String, enum: ['phone', 'color'] },
+  recoveryAnswerHash: { type: String },
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);
