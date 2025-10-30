@@ -67,15 +67,18 @@ router.get('/meal-price-history', async (req, res, next) => {
     const before = await PriceChange.findOne({ effectiveFrom: { $lt: startDate } }).sort({ effectiveFrom: -1 });
     const changes = await PriceChange.find({ effectiveFrom: { $gte: startDate, $lte: endDate } }).sort({ effectiveFrom: 1 });
 
-    // build per-day values
+    // precompute change days as YYYY-MM-DD in UTC to avoid TZ drift
+    const changeDays = changes.map(c => ({ day: dayjs(c.effectiveFrom).utc().format('YYYY-MM-DD'), value: Number(c.value) || 0 }));
+
+    // build per-day values (carry-forward last known)
     const labels = [];
     const values = [];
     let pointer = 0;
     let active = before ? Number(before.value) : current;
     for (let d = start; d.isBefore(end) || d.isSame(end, 'day'); d = d.add(1, 'day')) {
-      const endOfDayTs = d.endOf('day').valueOf();
-      while (pointer < changes.length && dayjs(changes[pointer].effectiveFrom).valueOf() <= endOfDayTs) {
-        active = Number(changes[pointer].value) || 0;
+      const curDay = d.utc().format('YYYY-MM-DD');
+      while (pointer < changeDays.length && changeDays[pointer].day <= curDay) {
+        active = changeDays[pointer].value;
         pointer++;
       }
       labels.push(d.format('D'));
