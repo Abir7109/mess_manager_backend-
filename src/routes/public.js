@@ -73,8 +73,8 @@ router.get('/meal-price-history', async (req, res, next) => {
     let pointer = 0;
     let active = before ? Number(before.value) : current;
     for (let d = start; d.isBefore(end) || d.isSame(end, 'day'); d = d.add(1, 'day')) {
-      const dayDate = d.endOf('day').toDate();
-      while (pointer < changes.length && dayjs(changes[pointer].effectiveFrom).isSameOrBefore(d, 'day')) {
+      const endOfDayTs = d.endOf('day').valueOf();
+      while (pointer < changes.length && dayjs(changes[pointer].effectiveFrom).valueOf() <= endOfDayTs) {
         active = Number(changes[pointer].value) || 0;
         pointer++;
       }
