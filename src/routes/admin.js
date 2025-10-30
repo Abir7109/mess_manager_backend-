@@ -94,9 +94,19 @@ router.get('/settings', requireAuth, requireAdmin, async (req, res, next) => {
 router.patch('/settings', requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const s = await getSettings();
+    const prevMealCost = s.mealCost;
     const fields = ['mealCost', 'countingRule', 'brandName'];
     fields.forEach(f => { if (req.body[f] !== undefined) s[f] = req.body[f]; });
     await s.save();
+
+    // record meal price change history if value changed
+    if (req.body.mealCost !== undefined && Number(prevMealCost) !== Number(req.body.mealCost)) {
+      try {
+        const PriceChange = require('../models/PriceChange');
+        await PriceChange.create({ value: Number(s.mealCost) || 0, effectiveFrom: new Date(), createdBy: req.user.sub });
+      } catch (e) { /* ignore history write errors */ }
+    }
+
     res.json(s);
   } catch (e) { next(e); }
 });
