@@ -67,21 +67,29 @@ router.get('/meal-price-history', async (req, res, next) => {
     const before = await PriceChange.findOne({ effectiveFrom: { $lt: startDate } }).sort({ effectiveFrom: -1 });
     const changes = await PriceChange.find({ effectiveFrom: { $gte: startDate, $lte: endDate } }).sort({ effectiveFrom: 1 });
 
-    // precompute change days as YYYY-MM-DD in UTC to avoid TZ drift
-    const changeDays = changes.map(c => ({ day: dayjs(c.effectiveFrom).utc().format('YYYY-MM-DD'), value: Number(c.value) || 0 }));
+    // precompute change days as YYYY-MM-DD in UTC without relying on dayjs utc plugin
+    function toUTCDateString(dt) {
+      const d = new Date(dt);
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const dd = String(d.getUTCDate()).padStart(2, '0');
+      return `${y}-${m}-${dd}`;
+    }
+    const changeDays = changes.map(c => ({ day: toUTCDateString(c.effectiveFrom), value: Number(c.value) || 0 }));
 
-    // build per-day values (carry-forward last known)
+    // build per-day values (carry-forward last known) using the provided month string
     const labels = [];
     const values = [];
     let pointer = 0;
     let active = before ? Number(before.value) : current;
-    for (let d = start; d.isBefore(end) || d.isSame(end, 'day'); d = d.add(1, 'day')) {
-      const curDay = d.utc().format('YYYY-MM-DD');
+    const daysInMonth = end.date();
+    for (let i = 1; i <= daysInMonth; i++) {
+      const curDay = `${month}-${String(i).padStart(2, '0')}`;
       while (pointer < changeDays.length && changeDays[pointer].day <= curDay) {
         active = changeDays[pointer].value;
         pointer++;
       }
-      labels.push(d.format('D'));
+      labels.push(String(i));
       values.push(active);
     }
 

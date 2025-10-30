@@ -117,10 +117,14 @@ router.post('/refresh', async (req, res, next) => {
     if (!token) token = req.body?.refreshToken;
     if (!token) token = req.cookies?.refresh_token;
     if (!token) return res.status(401).json({ error: 'No refresh token' });
-    const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
-    const payload = { sub: decoded.sub, role: decoded.role, name: decoded.name };
-    const accessToken = signAccessToken(payload);
-    res.json({ accessToken });
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+      const payload = { sub: decoded.sub, role: decoded.role, name: decoded.name };
+      const accessToken = signAccessToken(payload);
+      return res.json({ accessToken });
+    } catch (err) {
+      return res.status(401).json({ error: 'Invalid refresh token' });
+    }
   } catch (e) { next(e); }
 });
 
