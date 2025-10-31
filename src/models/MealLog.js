@@ -5,6 +5,8 @@ const mealLogSchema = new mongoose.Schema({
   date: { type: String, required: true }, // YYYY-MM-DD
   breakfast: { type: Boolean, default: false },
   dinner: { type: Boolean, default: false },
+  // Admin override: if set, this numeric value is used as the daily meal count
+  overrideCount: { type: Number },
   note: { type: String },
 }, { timestamps: true });
 

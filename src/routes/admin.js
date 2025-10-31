@@ -69,14 +69,20 @@ router.delete('/users/:id', requireAuth, requireAdmin, async (req, res, next) =>
   } catch (e) { next(e); }
 });
 
-// Admin: upsert meal log for any user
+// Admin: upsert meal log for any user (including override)
 router.post('/meals/upsert', requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    const { userId, date, breakfast, dinner, note } = req.body;
+    const { userId, date, breakfast, dinner, note, overrideCount } = req.body;
     if (!userId || !date) return res.status(400).json({ error: 'userId and date required' });
+    const update = { };
+    if (breakfast !== undefined) update.breakfast = !!breakfast;
+    if (dinner !== undefined) update.dinner = !!dinner;
+    if (note !== undefined) update.note = note;
+    if (overrideCount === null || overrideCount === '') update.overrideCount = undefined;
+    else if (overrideCount !== undefined) update.overrideCount = Number(overrideCount);
     const updated = await MealLog.findOneAndUpdate(
       { user: userId, date },
-      { $set: { breakfast: !!breakfast, dinner: !!dinner, note } },
+      { $set: update },
       { upsert: true, new: true }
     );
     res.json(updated);

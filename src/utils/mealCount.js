@@ -1,4 +1,8 @@
-function computeDailyCount({ breakfast, dinner }, countingRule = 'bothEqualsOne') {
+function computeDailyCount(log = {}, countingRule = 'bothEqualsOne') {
+  const { breakfast, dinner } = log || {};
+  if (typeof log.overrideCount === 'number' && !Number.isNaN(log.overrideCount)) {
+    return Number(log.overrideCount);
+  }
   switch (countingRule) {
     case 'perMeal':
       return (breakfast ? 1 : 0) + (dinner ? 1 : 0);
