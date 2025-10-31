@@ -44,6 +44,8 @@ mongoose.connection.on('connected', () => {
 
 app.get('/', (req, res) => res.json({ name: 'Mess Manager API', ok: true, health: '/api/health' }));
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+// Quiet favicon requests on this domain (e.g., when opening PDF in new tab)
+app.get('/favicon.ico', (req, res) => res.status(204).end());
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/meals', require('./routes/meals'));
