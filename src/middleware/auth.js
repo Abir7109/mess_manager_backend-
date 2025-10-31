@@ -28,7 +28,9 @@ async function sessionFromCookie(req) {
 
 async function requireAuth(req, res, next) {
   const header = req.headers.authorization || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+  let token = header.startsWith('Bearer ') ? header.slice(7) : null;
+  // Fallback: token via query (?access_token= or ?token=)
+  if (!token) token = req.query?.access_token || req.query?.token;
   if (token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
