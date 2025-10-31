@@ -31,11 +31,14 @@ function generateOverviewPDF({ month, users, settings }, res) {
   // Table header
   let y = topSpacing + 90;
   const cols = [
-    { key:'name', title:'Name', width: 180, align:'left' },
-    { key:'totalMeals', title:'Meals', width: 60, align:'right' },
-    { key:'mealCost', title:'Meal Cost', width: 80, align:'right', fmt:(v)=>currency(v) },
-    { key:'totalCost', title:'Spent', width: 80, align:'right', fmt:(v)=>currency(v) },
-    { key:'balance', title:'Balance', width: 80, align:'right', fmt:(v)=>currency(v) },
+    { key:'name', title:'Name', width: 160, align:'left' },
+    { key:'totalMeals', title:'Meals', width: 50, align:'right' },
+    { key:'mealUnitPrice', title:'Price', width: 55, align:'right', fmt:(v)=>currency(v) },
+    { key:'mealsCost', title:'Meals Cost', width: 80, align:'right', fmt:(v)=>currency(v) },
+    { key:'sharedShare', title:'Shared', width: 70, align:'right', fmt:(v)=>currency(v) },
+    { key:'totalCost', title:'Total', width: 75, align:'right', fmt:(v)=>currency(v) },
+    { key:'balance', title:'Balance', width: 70, align:'right', fmt:(v)=>currency(v) },
+    { key:'due', title:'Due', width: 60, align:'right', fmt:(v)=>currency(v) },
   ];
   const startX = 46;
   doc.rect(startX-10, y-6, doc.page.width - 92, 24).fill('#E0F2F1');
@@ -53,9 +56,12 @@ function generateOverviewPDF({ month, users, settings }, res) {
     const row = {
       name: u.name,
       totalMeals: u.totalMeals || 0,
-      mealCost: mealCost,
+      mealUnitPrice: u.mealUnitPrice || mealCost,
+      mealsCost: u.mealsCost || ((u.totalMeals||0)*mealCost),
+      sharedShare: u.sharedShare || 0,
       totalCost: u.totalCost || 0,
       balance: u.balance || 0,
+      due: u.due || ((u.totalCost||0) - (u.balance||0)),
     };
     cols.forEach(c => {
       const val = c.fmt ? c.fmt(row[c.key]) : String(row[c.key] ?? '');
@@ -66,13 +72,25 @@ function generateOverviewPDF({ month, users, settings }, res) {
 
   // Totals row
   const totalsY = y + users.length * 20 + 6;
+  const sumMealsCost = users.reduce((s,u)=>s+(u.mealsCost||((u.totalMeals||0)*mealCost)),0);
+  const sumShared = users.reduce((s,u)=>s+(u.sharedShare||0),0);
   doc.moveTo(startX-10, totalsY).lineTo(doc.page.width-46, totalsY).stroke('#B2DFDB');
   doc.fontSize(11).fillColor('#0F766E');
-  doc.text('Totals', startX, totalsY + 8, { width: 180 });
-  doc.text(String(totalMeals), startX + 190, totalsY + 8, { width: 60, align:'right' });
-  doc.text(currency(mealCost), startX + 260, totalsY + 8, { width: 80, align:'right' });
-  doc.text(currency(totalSpent), startX + 350, totalsY + 8, { width: 80, align:'right' });
+  doc.text('Totals', startX, totalsY + 8, { width: 160 });
+  doc.text(String(totalMeals), startX + 170, totalsY + 8, { width: 50, align:'right' });
+  doc.text(currency(mealCost), startX + 230, totalsY + 8, { width: 55, align:'right' });
+  doc.text(currency(sumMealsCost), startX + 295, totalsY + 8, { width: 80, align:'right' });
+  doc.text(currency(sumShared), startX + 385, totalsY + 8, { width: 70, align:'right' });
+  doc.text(currency(totalSpent + sumShared), startX + 465, totalsY + 8, { width: 75, align:'right' });
   doc.fillColor('#000000');
+
+  // Insights section
+  const insightsY = totalsY + 28;
+  const byDue = [...users].map(u=>({ name:u.name, due:u.due||((u.totalCost||0)-(u.balance||0)) })).sort((a,b)=> (b.due||0)-(a.due||0));
+  const topDue = byDue.slice(0,5);
+  doc.fontSize(11).fillColor('#0F766E').text('Top Outstanding Dues', 36, insightsY);
+  doc.fillColor('#000');
+  topDue.forEach((u,i)=>{ doc.text(`${i+1}. ${u.name}: ${currency(u.due||0)}`, 46, insightsY + 16 + i*14); });
 
   // Footer
   doc.fontSize(9).fillColor('#666').text(`Generated at ${new Date().toLocaleString()} • Counting Rule: ${settings?.countingRule || 'perMealHalf'}`, 36, doc.page.height - 40, { align:'center', width: doc.page.width - 72 });

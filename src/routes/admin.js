@@ -182,19 +182,47 @@ router.get('/pdf', requireAuth, requireAdmin, async (req, res, next) => {
     const users = await User.find();
     const logs = await MealLog.find({ date: { $in: dates } });
 
+    // meals per user
     const map = new Map();
-    users.forEach(u => map.set(u._id.toString(), { name: u.name, balance: u.balance, totalMeals: 0 }));
+    users.forEach(u => map.set(u._id.toString(), { name: u.name, email: u.email, balance: u.balance, totalMeals: 0 }));
     for (const log of logs) {
       const it = map.get(log.user.toString());
       if (!it) continue;
       it.totalMeals += computeDailyCount(log, settings.countingRule);
     }
-    const payload = users.map(u => ({
-      name: u.name,
-      balance: u.balance,
-      totalMeals: map.get(u._id.toString())?.totalMeals || 0,
-      totalCost: (map.get(u._id.toString())?.totalMeals || 0) * (settings.mealCost || 0)
-    }));
+
+    // shared expenses split
+    const Expense = require('../models/Expense');
+    const start = dayjs(month + '-01').toDate();
+    const end = dayjs(month + '-01').endOf('month').toDate();
+    const shared = await Expense.find({ shared: true, date: { $gte: start, $lte: end } }).populate('participants', '_id');
+    for (const e of shared) {
+      const partIds = (e.participants || []).map(p => p._id ? p._id.toString() : String(p));
+      const per = (Number(e.amount) || 0) / Math.max(1, partIds.length || 1);
+      for (const pid of partIds) {
+        const it = map.get(pid);
+        if (it) it.sharedShare = (it.sharedShare || 0) + per;
+      }
+    }
+
+    const payload = users.map(u => {
+      const it = map.get(u._id.toString()) || {};
+      const mealsCost = (it.totalMeals || 0) * (settings.mealCost || 0);
+      const sharedShare = Number(it.sharedShare || 0);
+      const totalCost = mealsCost + sharedShare;
+      const due = totalCost - Number(it.balance || 0);
+      return {
+        name: u.name,
+        email: u.email,
+        balance: it.balance || 0,
+        totalMeals: it.totalMeals || 0,
+        mealUnitPrice: settings.mealCost || 0,
+        mealsCost,
+        sharedShare,
+        totalCost,
+        due,
+      };
+    });
 
     generateOverviewPDF({ month, users: payload, settings }, res);
   } catch (e) { next(e); }
