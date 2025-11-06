@@ -16,8 +16,13 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const allowedOrigins = Array.from(new Set([
   FRONTEND_URL,
   process.env.FRONTEND_ORIGIN,
+  // Web dev and GH Pages
   'http://localhost:5173',
   'https://abir7109.github.io',
+  // Capacitor (mobile) webview origins
+  'capacitor://localhost',
+  'http://localhost',
+  'https://localhost',
 ].filter(Boolean).map(v => { try { return new URL(v).origin; } catch { return v; } })));
 console.log('CORS allowed origins:', allowedOrigins);
 
