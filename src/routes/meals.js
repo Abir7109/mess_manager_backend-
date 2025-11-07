@@ -23,20 +23,32 @@ router.get('/mine', requireAuth, async (req, res, next) => {
 
 router.post('/mine', requireAuth, async (req, res, next) => {
   try {
-    const { date, breakfast, dinner } = req.body;
+    const { date, breakfast, dinner, breakfastQuarters, dinnerQuarters } = req.body;
     if (!date) return res.status(400).json({ error: 'date required (YYYY-MM-DD)' });
     const existing = await MealLog.findOne({ user: req.user.sub, date });
+
     const prevB = !!existing?.breakfast;
     const prevD = !!existing?.dinner;
-    const nextB = breakfast === true ? true : prevB; // allow only enabling
-    const nextD = dinner === true ? true : prevD;    // allow only enabling
-    // deny attempts to disable
+    const prevBQ = Number.isFinite(existing?.breakfastQuarters) ? existing.breakfastQuarters : 0;
+    const prevDQ = Number.isFinite(existing?.dinnerQuarters) ? existing.dinnerQuarters : 0;
+
+    // Clamp quarters 0..2 and only allow increment (no decrement by users)
+    const clamp = v => Math.max(0, Math.min(2, Math.floor(Number(v))))
+    const reqBQ = Number.isFinite(Number(breakfastQuarters)) ? clamp(breakfastQuarters) : prevBQ;
+    const reqDQ = Number.isFinite(Number(dinnerQuarters)) ? clamp(dinnerQuarters) : prevDQ;
+    const nextBQ = Math.max(prevBQ, reqBQ)
+    const nextDQ = Math.max(prevDQ, reqDQ)
+
+    const nextB = (breakfast === true) || prevB || nextBQ >= 2;
+    const nextD = (dinner === true) || prevD || nextDQ >= 2;
+
+    // deny attempts to disable legacy booleans
     if ((breakfast === false && prevB) || (dinner === false && prevD)) {
       return res.status(403).json({ error: 'Users cannot deselect meals. Contact an admin.' });
     }
     const updated = await MealLog.findOneAndUpdate(
       { user: req.user.sub, date },
-      { $set: { breakfast: nextB, dinner: nextD } },
+      { $set: { breakfast: nextB, dinner: nextD, breakfastQuarters: nextBQ, dinnerQuarters: nextDQ } },
       { upsert: true, new: true }
     );
     res.json(updated);
